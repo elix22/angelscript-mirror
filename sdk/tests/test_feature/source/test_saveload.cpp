@@ -396,6 +396,120 @@ bool Test()
 	asIScriptEngine* engine;
 	asIScriptModule* mod;
 
+	// Test bytecode loading with value type and list constructor
+	// Reported by Phong Ba
+	{
+		engine = asCreateScriptEngine();
+		engine->SetMessageCallback(asMETHOD(CBufferedOutStream, Callback), &bout, asCALL_THISCALL);
+		bout.buffer = "";
+	
+		CBytecodeStream stream(__FILE__);
+
+		r = engine->RegisterObjectType("vObj", 1, asOBJ_VALUE | asOBJ_POD); assert(r >= 0);
+		r = engine->RegisterObjectBehaviour("vObj", asBEHAVE_LIST_CONSTRUCT, "void f(int &in) {repeat int}", asFUNCTION(0), asCALL_GENERIC); assert(r >= 0);
+
+		{
+			asIScriptModule *mod = engine->GetModule(0, asGM_ALWAYS_CREATE); assert(mod != NULL);
+
+			r = mod->AddScriptSection("main", "void main() {vObj t = {1, 2, 3};}"); assert(r >= 0);
+			r = mod->Build(); assert(r >= 0);
+			r = mod->SaveByteCode(&stream); assert(r >= 0);
+			mod->Discard();
+		}
+
+		{
+			asIScriptModule *mod = engine->GetModule(0, asGM_ALWAYS_CREATE); assert(mod != NULL);
+
+			r = mod->LoadByteCode(&stream); assert(r >= 0);
+			mod->Discard();
+		}
+
+		if (bout.buffer != "") 
+		{
+			PRINTF("%s", bout.buffer.c_str());
+			TEST_FAILED;
+		}
+
+		r = engine->ShutDownAndRelease(); assert(r >= 0);		
+	}
+
+	// Test crash with mismatched shared classes
+	// Reported by Julius Narvilas/MrFloat
+	{
+		engine = asCreateScriptEngine();
+		engine->SetMessageCallback(asMETHOD(CBufferedOutStream, Callback), &bout, asCALL_THISCALL);
+		bout.buffer = "";
+	
+		CBytecodeStream stream1("a");
+		CBytecodeStream stream2("b");	
+		
+		// Compile script 2
+		{
+			const char* file2 = ""
+				"shared class Test1 { \n"
+				//mismatching functions
+				"	int function2() { return 0; } \n"
+				""
+				"}\n";
+
+			asIScriptModule* mod = engine->GetModule("test2", asGM_ALWAYS_CREATE);
+			r = mod->AddScriptSection("test2", file2, strlen(file2));
+			r = mod->Build();
+			if( r < 0 )
+				TEST_FAILED;
+			r = mod->SaveByteCode(&stream2);
+			mod->Discard();
+		}
+		
+		// Compile script 1
+		{
+				const char* file1 = ""
+				"shared class Test1 { \n"
+				//mismatching functions
+				"	int function1() { return 0; } \n"
+				""
+				"}\n";
+
+			asIScriptModule* mod = engine->GetModule("test1", asGM_ALWAYS_CREATE);
+			r = mod->AddScriptSection("test1", file1, strlen(file1));
+			r = mod->Build();
+			if( r < 0 )
+				TEST_FAILED;
+			r = mod->SaveByteCode(&stream1);
+			mod->Discard();
+		}
+		
+		// Load the previously saved bytecode over the first module
+		asIScriptModule* mod2 = engine->GetModule("test2", asGM_ALWAYS_CREATE);
+		r = mod2->LoadByteCode(&stream2);
+		if( r < 0 )
+			TEST_FAILED;
+
+		//invalid bytecode with outdated shared class into a new module
+		asIScriptModule* mod1_1 = engine->GetModule("test1_1", asGM_ALWAYS_CREATE);
+		r = mod1_1->LoadByteCode(&stream1);
+		if( r >= 0 )
+			TEST_FAILED;
+
+		//just need another compilation to trigger "engine->signatureIds" array search
+		asIScriptModule* mod1_2 = engine->GetModule("test1_2", asGM_ALWAYS_CREATE);
+		stream1.Restart();
+		r = mod1_2->LoadByteCode(&stream1);
+		if( r >= 0 )
+			TEST_FAILED;
+		
+		if (bout.buffer != " (0, 0) : Error   : Shared type 'Test1' doesn't match the original declaration in other module\n"
+						   " (0, 0) : Error   : LoadByteCode failed. The bytecode is invalid. Number of bytes read from stream: 90\n"
+						   " (0, 0) : Error   : Shared type 'Test1' doesn't match the original declaration in other module\n"
+						   " (0, 0) : Error   : LoadByteCode failed. The bytecode is invalid. Number of bytes read from stream: 90\n") 
+		{
+			PRINTF("%s", bout.buffer.c_str());
+			TEST_FAILED;
+		}
+
+		engine->ShutDownAndRelease();
+	}
+	
 	// Test same function in different namespaces
 	// https://www.gamedev.net/forums/topic/697445-loadbytecode-fails-when-there-is-a-function-with-the-same-name-in-the-namespace/
 	{
@@ -1214,7 +1328,7 @@ bool Test()
 		r = engine->RegisterObjectBehaviour("dictionary<K, V>", asBEHAVE_FACTORY, "dictionary<K, V>@ f(int&in)", asFUNCTION(0), asCALL_GENERIC); assert(r >= 0);
 		r = engine->RegisterObjectBehaviour("dictionary<K, V>", asBEHAVE_ADDREF, "void f()", asFUNCTION(0), asCALL_GENERIC); assert(r >= 0);
 		r = engine->RegisterObjectBehaviour("dictionary<K, V>", asBEHAVE_RELEASE, "void f()", asFUNCTION(0), asCALL_GENERIC); assert(r >= 0);
-		r = engine->RegisterObjectMethod("dictionary<K, V>", "int get_Count() const", asFUNCTION(0), asCALL_GENERIC); assert(r >= 0);
+		r = engine->RegisterObjectMethod("dictionary<K, V>", "int get_Count() const property", asFUNCTION(0), asCALL_GENERIC); assert(r >= 0);
 
 		mod = engine->GetModule("test", asGM_ALWAYS_CREATE);
 		mod->AddScriptSection("test", "void main(){ dictionary<int,int> d; int cnt = d.Count; }");
@@ -1328,7 +1442,7 @@ bool Test()
 					"ep 11 1\n"
 					"ep 12 0\n"
 					"ep 13 0\n"
-					"ep 14 2\n"
+					"ep 14 3\n" // asEP_PROPERTY_ACCESSOR_MODE
 					"ep 15 0\n"
 					"ep 16 1\n"
 					"ep 17 0\n"
@@ -1423,7 +1537,7 @@ bool Test()
 			"void test2(){ @foo = bar;   }";
 
 		engine->RegisterFuncdef( "void MyVoid()" );
-		engine->RegisterGlobalFunction( "void set_foo(MyVoid@)", asFUNCTION(T::set_funcdef_var), asCALL_CDECL );
+		engine->RegisterGlobalFunction( "void set_foo(MyVoid@) property", asFUNCTION(T::set_funcdef_var), asCALL_CDECL );
 
 		asIScriptModule* module = engine->GetModule( "script", asGM_ALWAYS_CREATE );
 		module->AddScriptSection( "script", script );

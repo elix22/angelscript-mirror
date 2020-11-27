@@ -86,101 +86,7 @@ public:
 
 \section doc_addon_datetime_2 Public script interface
 
-<pre>
-  class datetime
-  {
-    datetime();
-    datetime(const datetime &in other);
-    datetime(uint y, uint m, uint d, uint h = 0, uint mi = 0, uint s = 0);
-
-    datetime &opAssign(const datetime &in other);
-
-    uint get_year() const;
-    uint get_month() const;
-    uint get_day() const;
-    uint get_hour() const;
-    uint get_minute() const;
-    uint get_second() const;
-    
-    bool setDate(uint year, uint month, uint day);
-    bool setTime(uint hour, uint minute, uint second);
-
-    int64     opSub(const datetime &in) const;
-    datetime  opAdd(int64 seconds) const;
-    datetime  opAdd_r(int64 seconds) const;
-    datetime &opAddAssign(int64 seconds);
-    datetime  opSub(int64 seconds) const;
-    datetime  opSub_r(int64 seconds) const;
-    datetime &opSubAssign(int64 seconds);
-    bool      opEquals(const datetime &in) const;
-    int       opCmp(const datetime &in) const;
-  }
-</pre>
-
-\subsection doc_addon_datetime_2_construct Constructors
-
-<b>datetime()</b><br>
-<b>datetime(const datetime &in other)</b><br>
-<b>datetime(uint y, uint m, uint d, uint h = 0, uint mi = 0, uint s = 0)</b><br>
- 
-The default constructor initializes the object with the current system time.
-
-The copy constructor copíes the content of the other object.
-
-The set constructor initializes the object with the given date and time.
-
-\subsection doc_addon_datetime_2_methods Methods
-
-<b>uint get_year() const</b>
-
-Returns the year of the date stored in the object. 
-
-<b>uint get_month() const</b>
-
-Returns the month of the date stored in the object. The range is 1 to 12, i.e. 1 is January, 12 is December, and so on.
- 
-<b>uint get_day() const</b>
-
-Returns the day of the month of the date stored in the object.
- 
-<b>uint get_hour() const</b>
-
-Returns the hour of the time stored in the object. The range is 0 to 23.
- 
-<b>uint get_minute() const</b>
-
-Returns the minute of the time stored in the object. The range is 0 to 59.
-
-<b>uint get_second() const</b>
- 
-Returns the second of the time stored in the object. The range is 0 to 59.
-
-<b>bool setDate(uint year, uint month, uint day)</b><br>
-<b>bool setTime(uint hour, uint minute, uint second)</b>
-
-Sets the date or time. Returns true if the specified date or time is valid. Does not modify the object if not valid.
-
-\subsection doc_addon_datetime_2_ops Operators
-
-<b>= assignment</b>
- 
-The assignment operator copies the content of the other object.
-
-<b>- difference</b>
-
-When subtracting one datetime object from another the result is the number of seconds between them.
-
-<b>+ add</b><br>
-<b>- subtract</b><br>
-<b>+= add assign</b><br>
-<b>-= subtract assign</b>
-
-The datetime object can be added or subtracted with seconds to form a new datetime object.
-
-<b>==, != equality</b><br>
-<b><, <=, >=, > comparison</b>
-
-The datetime object can be compared for equality or relativity.
+\see \ref doc_script_stdlib_datetime "datetime in the script language"
 
 
 
@@ -333,7 +239,7 @@ debugger can be overridden to implement custom to-string logic.
 
 \see The sample \ref doc_samples_asrun for a complete example of how to use the debugger
 
-\section doc_addon_ctxmgr_1 Public C++ interface
+\section doc_addon_debugger_1 Public C++ interface
 
 \code
 class CDebugger
@@ -380,7 +286,7 @@ public:
 };
 \endcode
 
-\section doc_addon_debugger_1 Example usage
+\section doc_addon_debugger_2 Example usage
 
 \code
 CDebugger dbg;
@@ -489,28 +395,8 @@ public:
 
 \section doc_addon_ctxmgr_2 Public script interface
 
-<pre>
-  funcdef void coroutine(dictionary@);
-  void createCoRoutine(coroutine @, dictionary @);
-  void yield();
-</pre>
+\see \ref doc_script_stdlib_coroutine
 
-<b>funcdef void coroutine(dictionary@)</b><br>
-<b>void createCoRoutine(coroutine @, dictionary @)</b>
-
-This function is used to create a co-routine. The co-routine will initiate in a 
-yielded state, i.e. it will only begin execution once the control is given to it
-by the current thread. 
-
-Multiple co-routines can be created, and they will each take turn to execute in 
-round-robin fashion.
-
-<b>void yield()</b>
-
-Yields control of the execution for the next co-routine in the queue. 
-
-When a co-routine receives control it will resume execution from the last call to
-yield, or the entry point if this is the first time the co-routine is allowed to execute.
 
 
 
@@ -722,8 +608,8 @@ public:
     uint height() const;
     void resize(uint w, uint h);
     
-    T &opIndex(uint, uint);
-    const T &opIndex(uint, uint) const;
+    T &opIndex(uint x, uint y);
+    const T &opIndex(uint x, uint y) const;
   }
 </pre>
 
@@ -1103,7 +989,7 @@ Refer to the <code>std::string</code> implementation for your compiler.
 
 \section doc_addon_std_string_2 Public script interface
 
-\see \ref doc_datatypes_strings "Strings in the script language"
+\see \ref doc_script_stdlib_string "Strings in the script language"
 
 
 
@@ -1206,6 +1092,30 @@ public:
 
 \see \ref doc_datatypes_dictionary "Dictionaries in the script language"
 
+\section doc_addon_dict_3 Example usage from C++
+
+Here's a skeleton for iterating over the entries in the dictionary. For brevity the code doesn't show how to interpret the values, 
+for more information on that see \ref asETypeIdFlags and \ref asIScriptEngine::GetTypeInfoById.
+
+\code
+void iterateDictionary(CScriptDictionary *dict)
+{
+	// Iterate over each entry
+	for (auto it : *dict)
+	{
+		// Determine the name of the key
+		std::string keyName = it.GetKey();
+		cout << "\"" << keyName << "\"" << " = ";
+		
+		// Get the type and address of the value
+		int typeId = it.GetTypeId();
+		const void *addressOfValue = it.GetAddressOfValue();
+
+		// Cast the value to the correct C++ type according to the typeId and then print it
+		...
+	}
+}
+\endcode
 
 
 
@@ -1289,135 +1199,8 @@ public:
 
 \section doc_addon_file_2 Public script interface
 
-<pre>
-  class file
-  {
-    int      open(const string &in filename, const string &in mode);
-    int      close();
-    int      getSize() const;
-    bool     isEndOfFile() const;
-    string   readString(uint length);
-    string   readLine();
-    int64    readInt(uint bytes);
-    uint64   readUInt(uint bytes);
-    float    readFloat();
-    double   readDouble();
-    int      writeString(const string &in str);
-    int      writeInt(int64 value, uint bytes);
-    int      writeUInt(uint64 value, uint bytes);
-    int      writeFloat(float value);
-    int      writeDouble(double value);
-    int      getPos() const;
-    int      setPos(int pos);
-    int      movePos(int delta);
-    bool     mostSignificantByteFirst;
-  }
-</pre>
+\see \ref doc_script_stdlib_file
 
-<b>int open(const string &in filename, const string &in mode)</b><br>
-
-Opens a file. The mode can be "r" for reading, "w" for writing, or "a" for appending.
-
-If the file couldn't be opened, a negative value is returned.
-
-<b>int close()</b><br>
-
-Closes the file.
-
-If no file is open, a negative value is returned.
-
-<b>int getSize() const</b><br>
-
-Returns the size of the file, or a negative value if no file is open.
-
-<b>bool isEndOfFile() const</b><br>
-
-Returns true if the current position is at the end of the file.
-
-<b>string readString(uint length)</b><br>
-
-Reads \a length bytes into a string and returns it.
-
-<b>string readLine()</b><br>
-
-Reads until a new line character, e.g. '\\n', or end-of-file and returns the string. The new line character is also returned in the string.
-
-<b>int64 readInt(uint bytes)</b><br>
-
-Reads \a bytes as a signed integer number.
-
-<b>uint64 readUInt(uint bytes)</b><br>
-
-Reads \a bytes as an unsigned integer number.
-
-<b>float readFloat()</b><br>
-
-Reads 4 bytes as a float number.
-
-<b>double readDouble()</b><br>
-
-Reads 8 bytes as a double number.
-
-<b>int writeString(const string &in str)</b><br>
-
-Writes the bytes of the string into the file. 
-
-Returns the number of bytes written, or a negative value on error.
-
-<b>int writeInt(int64 value, uint bytes)</b><br>
-
-Writes \a bytes as a signed integer value.
-
-Returns the number of bytes written, or a negative value on error.
-
-<b>int writeUInt(uint64 value, uint bytes)</b><br>
-
-Writes \a bytes as an unsigned integer value.
-
-Returns the number of bytes written, or a negative value on error.
-
-<b>int writeFloat(float value)</b><br>
-
-Writes 4 bytes as a float value.
-
-Returns the number of bytes written, or a negative value on error.
-
-<b>int writeDouble(double value)</b><br>
-
-Writes 8 bytes as a double value.
-
-Returns the number of bytes written, or a negative value on error.
-
-<b>int getPos() const</b><br>
-
-Returns the current position in the file, or a negative value on error.
-
-<b>int setPos(int pos)</b><br>
-
-Sets the current position in the file. Returns the previous position or a negative value on error.
-
-<b>int movePos(int delta)</b><br>
-
-Moves the position \a delta bytes relative to the current position. Returns the previous position or a negative value on error.
-
-<b>bool mostSignificantByteFirst</b><br>
-
-This property should be set to true if the most significant bit should be read or written first in the methods that reads/writes numbers.
-
-It is set to false by default, which is the standard on most platforms.
-
-\section doc_addon_file_3 Script example
-
-<pre>
-  file f;
-  // Open the file in 'read' mode
-  if( f.open("file.txt", "r") >= 0 ) 
-  {
-      // Read the whole file into the string buffer
-      string str = f.readString(f.getSize()); 
-      f.close();
-  }
-</pre>
 
 
 
@@ -1476,78 +1259,18 @@ public:
 
   // Moves or renames a file or directory. Returns 0 on success
   int Move(const std::string &source, const std::string &target);
+  
+  // Gets the date and time of the file/dir creation
+  CDateTime GetCreateDateTime(const std::string &path) const;
+  
+  // Gets the date and time of the file/dir modification
+  CDateTime GetModifyDateTime(const std::string &path) const; 
 };
 \endcode
 
 \section doc_addon_filesystem_2 Public script interface
 
-<pre>
-  class filesystem
-  {
-    bool           changeCurrentPath(const string &in);
-    string         getCurrentPath() const;
-    array<string> \@getDirs();
-    array<string> \@getFiles();
-    bool           isDir(const string &in);
-    bool           isLink(const string &in) const;
-    int64          getSize(const string &in) const;
-    int            makeDir(const string &in);
-    int            removeDir(const string &in);
-    int            deleteFile(const string &in);
-    int            copyFile(const string &in, const string &in);
-    int            move(const string &in, const string &in);
-  }
-</pre>
-
-<b>bool changeCurrentPath(const string &in path)</b>
-
-This changes the current directory used by the filesystem object. It will return true if the given path is valid.
-
-It doesn't change the application' working directory.
-
-<b>string getCurrentPath() const</b>
-
-Returns the current path used by the filesystem object.
-
-<b>array<string> \@getDirs()</b>
-
-Returns a list with the names of all directories in the current path.
-
-<b>array<string> \@getFiles()</b>
-
-Returns a list with the names of all files in the current path.
-
-<b>bool isDir(const string &in path)</b>
-
-Returns true if the given path is a directory.
-
-<b>bool isLink(const string &in path)</b>
-
-Returns true if the given path is a link.
-
-<b>int64 getSize(const string &in) const</b>
-
-Returns the size of a file.
-
-<b>int makeDir(const string &in)</b>
-
-Creates a new directory. Returns 0 on success.
-
-<b>int removeDir(const string &in)</b>
-
-Removes a directory. Will only remove the directory if it is empty. Returns 0 on success.
-
-<b>int deleteFile(const string &in)</b>
-
-Deletes a file. Returns 0 on success.
-
-<b>int copyFile(const string &in, const string &in)</b>
-
-Copies a file. Returns 0 on success.
-
-<b>int move(const string &in, const string &in)</b>
-
-Moves or renames a file or directory. Returns 0 on success.
+\see \ref doc_script_stdlib_filesystem
 
 
 
@@ -1807,19 +1530,24 @@ public:
   string       GetSectionName(unsigned int idx) const;
   
   // Get metadata declared for classes, interfaces, and enums
-  const char *GetMetadataStringForType(int typeId);
+  // Each metadata block, i.e. [...], is returned as a separate string
+  std::vector<std::string> GetMetadataStringForType(int typeId);
 
   // Get metadata declared for functions
-  const char *GetMetadataStringForFunc(asIScriptFunction *func);
+  // Each metadata block, i.e. [...], is returned as a separate string
+  std::vector<std::string> GetMetadataStringForFunc(asIScriptFunction *func);
 
   // Get metadata declared for global variables
-  const char *GetMetadataStringForVar(int varIdx);
+  // Each metadata block, i.e. [...], is returned as a separate string
+  std::vector<std::string> GetMetadataStringForVar(int varIdx);
 
   // Get metadata declared for a class method
-  const char *GetMetadataStringForTypeMethod(int typeId, asIScriptFunction *method);
+  // Each metadata block, i.e. [...], is returned as a separate string
+  std::vector<std::string> GetMetadataStringForTypeMethod(int typeId, asIScriptFunction *method);
 
   // Get metadata declared for a class property
-  const char *GetMetadataStringForTypeProperty(int typeId, int varIdx);
+  // Each metadata block, i.e. [...], is returned as a separate string
+  std::vector<std::string> GetMetadataStringForTypeProperty(int typeId, int varIdx);
 };
 \endcode
 
@@ -1903,7 +1631,7 @@ for post build lookup by the type id, function id, or variable index.
 Exactly what the metadata looks like is up to the application. The builder class doesn't
 impose any rules, except that the metadata should be added between brackets []. After 
 the script has been built the application can obtain the metadata strings and interpret
-them as it sees fit.
+them as it sees fit. Multiple metadata blocks, i.e. [], can be defined for each entity. 
 
 Example script with metadata:
 
@@ -1914,7 +1642,8 @@ Example script with metadata:
     [editable] 
     vector3 myPosition;
     
-    [editable [10, 100]]
+    [editable]
+    [range [10, 100]]
     int     myStrength;
   }
   
@@ -1941,11 +1670,14 @@ if( r >= 0 )
   int count = mod->GetGlobalVarCount();
   for( int n = 0; n < count; n++ )
   {
-    string metadata = builder.GetMetadataStringForVar(n);
-    if( metadata == "editable" )
+    vector<string> metadata = builder.GetMetadataStringForVar(n);
+    for( int m = 0; m < metadata.size(); m++ )
     {
-      // Show the global variable in a GUI
-      ...
+      if( metadata[m] == "editable" )
+      {
+        // Show the global variable in a GUI
+        ...
+      }
     }
   }
 }
@@ -2032,7 +1764,7 @@ to direct this to a file.
 
 <b>Path:</b> /sdk/add_on/scripthelper/
 
-The \ref try "throw and getExceptionInfo" routines are registered by the application 
+The exception handling routines are registered by the application 
 with a call to RegisterExceptionRoutines.
 
 \section doc_addon_helpers_try_1 Public C++ interface
@@ -2043,6 +1775,10 @@ with a call to RegisterExceptionRoutines.
 //  'string getExceptionInfo()'
 void RegisterExceptionRoutines(asIScriptEngine *engine);
 \endcode
+
+\section doc_add_helpers_try_2 Public script interface
+
+\see \ref doc_script_stdlib_exception
 
 
 

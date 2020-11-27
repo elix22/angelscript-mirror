@@ -1,7 +1,9 @@
 #include "utils.h"
 #include "scriptmath3d.h"
 
+BEGIN_AS_NAMESPACE
 void RegisterStdString_Generic(asIScriptEngine *engine);
+END_AS_NAMESPACE
 
 namespace TestUnsafeRef
 {
@@ -241,7 +243,7 @@ bool Test()
 		engine->RegisterObjectType("UIElement", 0, asOBJ_REF);
 		engine->RegisterObjectBehaviour("UIElement", asBEHAVE_ADDREF, "void f()", asFUNCTION(0), asCALL_GENERIC);
 		engine->RegisterObjectBehaviour("UIElement", asBEHAVE_RELEASE, "void f()", asFUNCTION(0), asCALL_GENERIC);
-		engine->RegisterObjectMethod("UIElement", "VariantMap& get_vars()", asFUNCTION(0), asCALL_GENERIC);
+		engine->RegisterObjectMethod("UIElement", "VariantMap& get_vars() property", asFUNCTION(0), asCALL_GENERIC);
 
 		asIScriptModule* module = engine->GetModule("Test", asGM_ALWAYS_CREATE);
 

@@ -79,6 +79,11 @@ The factory function must be registered as a global function, but can be
 implemented as a static class method, common global function, or a global
 function following the generic calling convention.
 
+Even though a factory function returns an object handle, it must not return a null handle 
+unless it also sets an exception to signal that the instantiation of the object failed. 
+
+The behaviour is undefined if a factory function returns null without setting an exception.
+
 See also \ref doc_reg_basicref_4.
 
 \section doc_reg_basicref_2 Addref and release behaviours
@@ -290,24 +295,26 @@ together with the asOBJ_VALUE flag.
 r = engine->RegisterObjectType("complex", sizeof(complex), asOBJ_VALUE | asGetTypeTraits<complex>()); assert( r >= 0 );
 \endcode
 
-On some platforms the native calling convention may require further knowledge about the class members that \ref asGetTypeTraits
-cannot determine in order to work properly; most notable are the Linux 64bit and Mac OSX 64bit systems with the GNUC compiler.
-On these systems small classes that do not have a destructor or a copy constructor will have different behaviours depending 
-on the type and order of their members.
+On some platforms the native calling convention may require further knowledge about the class and its members that \ref asGetTypeTraits
+cannot determine in order to work properly. Whether or not the flags are needed depends on the compiler and target platform, but if the flags
+are not needed AngelScript will simply ignore them so there is no harm in informing them.
 
 AngelScript lets the application give information that cover the most common variants, e.g. the class should be treated as 
-if all members are integers, or it should be treated as if all members are floats. 
+if all members are integers (or non-float primitives), or it should be treated as if all members are floats. It is also possible to inform if the class
+has more constructors than the traditional default and copy constructors. This last one normally only has importance if the default and copy constructors 
+are defaulted. 
 
 <table border=0 cellspacing=0 cellpadding=0>
-<tr><td>\ref asOBJ_APP_CLASS_ALLINTS   &nbsp; </td><td>The C++ class members can be treated as if all integers</td></tr>
-<tr><td>\ref asOBJ_APP_CLASS_ALLFLOATS &nbsp; </td><td>The C++ class members can be treated as if all floats or doubles</td></tr>
-<tr><td>\ref asOBJ_APP_CLASS_ALIGN8    &nbsp; </td><td>The C++ class contains members that may require 8byte alignment, e.g. a double.</td></tr>
+<tr><td>\ref asOBJ_APP_CLASS_MORE_CONSTRUCTORS &nbsp; </td><td>The C++ class has additional constructors beyond the default and copy constructors</td></tr>
+<tr><td>\ref asOBJ_APP_CLASS_ALLINTS           &nbsp; </td><td>The C++ class members can be treated as if all integers</td></tr>
+<tr><td>\ref asOBJ_APP_CLASS_ALLFLOATS         &nbsp; </td><td>The C++ class members can be treated as if all floats or doubles</td></tr>
+<tr><td>\ref asOBJ_APP_CLASS_ALIGN8            &nbsp; </td><td>The C++ class contains members that may require 8byte alignment, e.g. a double.</td></tr>
 </table>
 
-If these flags are not informed and AngelScript needs them on the platform, you'll get an error message like 
+If the flags that inform about the members are not informed and AngelScript needs them on the platform, you'll get an error message like 
 "Don't support passing/returning type 'MyType' by value to application in native calling convention on this platform". 
 
-It is difficult to explain when one or the other should be used as it requires in-depth knowledge of the ABI for the 
+It is difficult to explain exactly when one or the other should be used as it requires in-depth knowledge of the ABI for the 
 respective system, so if you find that you really need to use these flags, make sure you perform adequate testing 
 to guarantee that your functions are called correctly by the script engine. If neither of these flags work, and you're 
 not able to change the class to work without them, then the only other option is to use the generic calling convention,
@@ -550,15 +557,17 @@ the pointer. If the composite member is inlined, then the parameter should be se
 \section doc_reg_objprop_accessor Property accessors
 
 It is also possible to expose properties through \ref doc_script_class_prop "property accessors", 
-which are a pair of class methods with prefixes get_ and set_ for getting and setting the property value. 
-These methods should be registered with \ref doc_register_func "RegisterObjectMethod". This is especially
-useful when the offset of the property cannot be determined, or if the type of the property is 
+which are a pair of class methods with prefixes 'get_' and 'set_' and the function decorator 'property' for
+getting and setting the property value. These methods should be registered with \ref doc_register_func "RegisterObjectMethod". 
+This is especially useful when the offset of the property cannot be determined, or if the type of the property is 
 not registered in the script and some translation must occur, i.e. from <tt>char*</tt> to <tt>string</tt>.
 
 If the application class contains a C++ array as a member, it may be advantageous to expose the array
 through \ref doc_script_class_prop "indexed property accessors" rather than attempting to matching the
 C++ array type to a registered type in AngelScript. To do this you can create a couple of simple proxy functions
 that will translate to the array access.
+
+\note The behaviour of virtual properties can be customized with the engine property \ref doc_adv_custom_options_lang_mod "asEP_PROPERTY_ACCESSOR_MODE".
 
 \code
 struct MyStruct
@@ -580,8 +589,8 @@ void MyStruct_set_array(unsigned int idx, int value, MyStruct *o)
 }
 
 // Register the proxy functions as member methods
-r = engine->RegisterObjectMethod("mytype", "int get_array(uint)", asFUNCTION(MyStruct_get_array), asCALL_CDECL_OBJLAST); assert( r >= 0 );
-r = engine->RegisterObjectMethod("mytype", "void set_array(uint, int)", asFUNCTION(MyStruct_set_array), asCALL_CDECL_OBJLAST); assert( r >= 0 );
+r = engine->RegisterObjectMethod("mytype", "int get_array(uint) property", asFUNCTION(MyStruct_get_array), asCALL_CDECL_OBJLAST); assert( r >= 0 );
+r = engine->RegisterObjectMethod("mytype", "void set_array(uint, int) property", asFUNCTION(MyStruct_set_array), asCALL_CDECL_OBJLAST); assert( r >= 0 );
 \endcode
 
 

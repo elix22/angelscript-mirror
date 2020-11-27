@@ -12,8 +12,8 @@ This page gives a brief description of the samples that you'll find in the /sdk/
  - \subpage doc_samples_events
  - \subpage doc_samples_incl
  - \subpage doc_samples_asbuild
- - \subpage doc_samples_asrun
  - \subpage doc_samples_game
+ - \subpage doc_samples_asrun
 
 
 
@@ -156,9 +156,7 @@ the application interface has been fully registered.
 
 <b>Path:</b> /sdk/samples/asrun/
 
-This samples gives a very basic command line runner for AngelScripts. It currently doesn't
-allow the user to do very much as it is just a sample, but serves as a good foundation for
-building a useful command line tool.
+This samples gives a very basic command line runner for AngelScripts.
 
 It also implements a fully functional command line debugger, with support for setting 
 breakpoints, stepping through the code, examining variables, etc.
@@ -175,9 +173,21 @@ breakpoints, stepping through the code, examining variables, etc.
  - \ref doc_addon_build
  - \ref doc_addon_helpers_try
  - \ref asIScriptEngine::SetContextCallbacks
- - Passing command line arguments to script
- - Executing system commands from script
+ - \ref doc_script_stdlib_system
  - Implementing a \#pragma callback
+
+\see \subpage doc_samples_asrun_manual
+
+
+\page doc_samples_asrun_manual asrun manual
+
+asrun is a simple command-line tool that supports executing AngelScript files directly in order 
+to perform simple batch tasks. The API provided by the tool allow the script to interact with 
+the system to read and write files, and execute other system commands.
+
+On Windows it can be associated, for example with the file extension .as, to allow scripts to be 
+executed directly from the file browser with a double click. This makes it a handy tool even without
+a terminal for command-line input.
 
 
 
@@ -193,60 +203,43 @@ asrun [-d] \<script file> [\<args>]
 
 These usage instructions are also presented if the tool is executed without any arguments.
 
-The runner will look for the function <tt>int main()</tt> or <tt>void main()</tt> as entry point to execute the script.
+
+
+\section doc_samples_asrun_script Scripts
+
+As entry point for executing the scripts, asrun looks for one of the functions <tt>int main()</tt> or 
+<tt>void main()</tt>. If neither of these functions are found an error will be reported.
+
+The scripts can use the full set of the script language and standard library described in 
+\ref doc_script "the script language" section of this manual.
+
+The script file informed as input on the command line may include additional files with the include
+directive <tt>\#include "<file name>"</tt>, so that the script files can be better organized and common
+logic shared between multiple scripts. 
+
+
+
 
 
 
 
 \section doc_samples_asrun_debug How to debug scripts
 
-To run a script with the debugger, either add the command line argument -d or include <tt>\#pragma debug</tt> in the script. When this is done, the debugger will show a prompt like this:
+To run a script with the debugger, either add the command line argument -d 
+or include <tt>\#pragma debug</tt> in the script. When this is done, the 
+debugger will show a prompt like this:
 
 <pre>
 Debugging, waiting for commands. Type 'h' for help.
 [dbg]>
 </pre>
 
-This will then let you set up breakpoints, step through the code, inspect variables, etc. Type <tt>h</tt> on the prompt to get the list of commands available.
+This will then let you set up breakpoints, step through the code, inspect 
+variables, etc. Type <tt>h</tt> on the prompt to get the list of commands available.
 
 
 
 
-\section doc_samples_asrun_addons Add-ons available to scripts
-
-The following add-ons to the script language are available to the scripts run by the command line runner.
-
- - \ref doc_datatypes_strings "string"
- - \ref doc_datatypes_arrays "array"
- - \ref doc_datatypes_dictionary "dictionary"
- - \ref doc_addon_file_2 "file"
- - \ref doc_addon_filesystem_2 "filesystem"
- - \ref doc_addon_datetime_2 "datetime"
- - \ref doc_addon_ctxmgr_2 "co-routines"
- - \ref try_func "exception routines"
-
-
-
-
-\section doc_samples_asrun_funcs Global functions available to scripts
-
-Besides the add-ons listed above, the following functions are also exposed to the scripts.
-
-<b>void print(const string &in line)</b>
-
-Prints a line to the standard output.
- 
-<b>string getInput()</b>
-
-Gets a line from the standard input.
- 
-<b>array<string> \@getCommandLineArgs()</b>
-
-Gets the command line arguments as an array.
- 
-<b>int exec(const string &in)</b>
-
-Executes a system command.
 
 
 

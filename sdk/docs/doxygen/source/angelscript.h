@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2018 Andreas Jonsson
+   Copyright (c) 2003-2020 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied
    warranty. In no event will the authors be held liable for any
@@ -63,9 +63,9 @@ BEGIN_AS_NAMESPACE
 
 // AngelScript version
 
-//! Version 2.33.0
-#define ANGELSCRIPT_VERSION        23300
-#define ANGELSCRIPT_VERSION_STRING "2.33.0"
+//! Version 2.35.0
+#define ANGELSCRIPT_VERSION        23500
+#define ANGELSCRIPT_VERSION_STRING "2.35.0"
 
 // Data types
 
@@ -178,7 +178,7 @@ enum asEEngineProp
 	asEP_INCLUDE_JIT_INSTRUCTIONS           = 12,
 	//! Select string encoding for literals: 0 - UTF8/ASCII, 1 - UTF16. Default: 0 (UTF8)
 	asEP_STRING_ENCODING                    = 13,
-	//! Enable or disable property accessors: 0 - no accessors, 1 - app registered accessors, 2 - app and script created accessors
+	//! Enable or disable property accessors: 0 - no accessors, 1 - app registered accessors only, property keyword optional, 2 - app and script created accessors, property keyword optional, 3 - app and script created accesors, property keyword required. Default: 3
 	asEP_PROPERTY_ACCESSOR_MODE             = 14,
 	//! Format default array in template form in messages and declarations. Default: false
 	asEP_EXPAND_DEF_ARRAY_TO_TMPL           = 15,
@@ -192,7 +192,7 @@ enum asEEngineProp
 	asEP_COMPILER_WARNINGS                  = 19,
 	//! Disallow value assignment for reference types to avoid ambiguity. Default: false
 	asEP_DISALLOW_VALUE_ASSIGN_FOR_REF_TYPE = 20,
-	//! Change the script syntax for named arguments: 0 - no change, 1 - accept = but warn, 2 - accept = without warning. Default: 0
+	//! Change the script syntax for named arguments: 0 - no change, 1 - accept '=' but warn, 2 - accept '=' without warning. Default: 0
 	asEP_ALTER_SYNTAX_NAMED_ARGS            = 21,
 	//! When true, the / and /= operators will perform floating-point division (i.e. 1/2 = 0.5 instead of 0). Default: false
 	asEP_DISABLE_INTEGER_DIVISION           = 22,
@@ -302,6 +302,8 @@ enum asEObjTypeFlags
 	asOBJ_APP_CLASS_AK               = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_ASSIGNMENT + asOBJ_APP_CLASS_COPY_CONSTRUCTOR),
 	//! The C++ type is a class with a copy constructor.
 	asOBJ_APP_CLASS_K                = (asOBJ_APP_CLASS + asOBJ_APP_CLASS_COPY_CONSTRUCTOR),
+	//! The C++ class has additional constructors beyond the default and copy constructors
+	asOBJ_APP_CLASS_MORE_CONSTRUCTORS = (1<<31),
 	//! The C++ type is a primitive type. Only valid for value types.
 	asOBJ_APP_PRIMITIVE              = (1<<13),
 	//! The C++ type is a float or double. Only valid for value types.
@@ -319,7 +321,7 @@ enum asEObjTypeFlags
 	//! The object is declared for implicit handle. Only valid for reference types.
 	asOBJ_IMPLICIT_HANDLE            = (1<<20),
 	//! This mask shows which flags are value for RegisterObjectType
-	asOBJ_MASK_VALID_FLAGS           = 0x1FFFFF,
+	asOBJ_MASK_VALID_FLAGS           = 0x801FFFFF,
 	// Internal flags
 	//! The object is a script class or an interface.
 	asOBJ_SCRIPT_OBJECT              = (1<<21),
@@ -667,7 +669,7 @@ typedef void (*asCIRCULARREFFUNC_t)(asITypeInfo *, const void *, void *);
 // This macro does basically the same thing as offsetof defined in stddef.h, but
 // GNUC should not complain about the usage as I'm not using 0 as the base pointer.
 //! \brief Returns the offset of an attribute in a struct
-#define asOFFSET(s,m) ((size_t)(&reinterpret_cast<s*>(100000)->m)-100000)
+#define asOFFSET(s,m) ((int)(size_t)(&reinterpret_cast<s*>(100000)->m)-100000)
 
 //! \brief Returns an asSFuncPtr representing the function specified by the name
 #define asFUNCTION(f) asFunctionPtr(f)
@@ -809,6 +811,7 @@ struct asSMessageInfo
 extern "C"
 {
 	// Engine
+	//! \ingroup api_principal_functions
 	//! \brief Creates the script engine.
 	//! \param[in] version The library version. Should always be \ref ANGELSCRIPT_VERSION.
 	//! \return A pointer to the script engine interface, or null on error.
@@ -823,11 +826,13 @@ extern "C"
 	//! important when linking dynamically against the library. If the version is 
 	//! incorrect a null pointer is returned.
 	AS_API asIScriptEngine *asCreateScriptEngine(asDWORD version = ANGELSCRIPT_VERSION);
+	//! \ingroup api_auxiliary_functions
 	//! \brief Returns the version of the compiled library.
 	//! \return A null terminated string with the library version.
 	//!
 	//! The returned string can be used for presenting the library version in a log file, or in the GUI.
 	AS_API const char      *asGetLibraryVersion();
+	//! \ingroup api_auxiliary_functions
 	//! \brief Returns the options used to compile the library.
 	//! \return A null terminated string with indicators that identify the options
 	//!         used to compile the script library.
@@ -838,6 +843,7 @@ extern "C"
 	AS_API const char      *asGetLibraryOptions();
 
 	// Context
+	//! \ingroup api_principal_functions
 	//! \brief Returns the currently active context.
 	//! \return A pointer to the currently executing context, or null if no context is executing.
 	//!
@@ -853,6 +859,7 @@ extern "C"
 	AS_API asIScriptContext *asGetActiveContext();
 
 	// Thread support
+	//! \ingroup api_multithread_functions
 	//! \brief Sets up the internally shared resources for multithreading
 	//! \param[in] externalMgr Pre-existent thread manager (optional)
 	//! \return A negative value on error
@@ -867,46 +874,55 @@ extern "C"
 	//!
 	//! \see \ref doc_adv_multithread
 	AS_API int               asPrepareMultithread(asIThreadManager *externalMgr = 0);
+	//! \ingroup api_multithread_functions
 	//! \brief Frees resources prepared for multithreading
 	//!
 	//! If \ref asPrepareMultithread() has been called, then this function
 	//! should be called after the last engine has been released to free the
 	//! resources prepared for multithreading.
 	AS_API void              asUnprepareMultithread();
+	//! \ingroup api_multithread_functions
 	//! \brief Get the thread manager used by the application
 	//! \return The thread manager prepared with \ref asPrepareMultithread()
 	AS_API asIThreadManager *asGetThreadManager();
+	//! \ingroup api_multithread_functions
 	//! \brief Acquire an exclusive lock.
 	//!
 	//! This function will block the calling thread until there are no 
 	//! other threads that hold shared or exclusive locks.
 	AS_API void              asAcquireExclusiveLock();
+	//! \ingroup api_multithread_functions
 	//! \brief Release an exclusive lock.
 	//!
 	//! Releases the previously acquired exclusive lock.
 	AS_API void              asReleaseExclusiveLock();
+	//! \ingroup api_multithread_functions
 	//! \brief Acquire a shared lock.
 	//!
 	//! This function will block the calling thread until there are no 
 	//! other threads that hold exclusive locks. Other threads may hold
 	//! shared locks.
 	AS_API void              asAcquireSharedLock();
+	//! \ingroup api_multithread_functions
 	//! \brief Release a shared lock.
 	//!
 	//! Releases the previously acquired shared lock.
 	AS_API void              asReleaseSharedLock();
+	//! \ingroup api_multithread_functions
 	//! \brief Increments the value by one and returns the result as a single atomic instruction
 	//! \param[in] value A reference to the value that should be incremented
 	//! \return The incremented value
 	//!
 	//! This function is especially useful for implementing thread safe reference counters.
 	AS_API int               asAtomicInc(int &value);
+	//! \ingroup api_multithread_functions
 	//! \brief Decrements the value by one and returns the result as a single atomic instruction
 	//! \param[in] value A reference to the value that should be decremented
 	//! \return The decremented value
 	//!
 	//! This function is especially useful for implementing thread safe reference counters.
 	AS_API int               asAtomicDec(int &value);
+	//! \ingroup api_multithread_functions
 	//! \brief Cleans up memory allocated for the current thread.
 	//! \return A negative value on error.
 	//! \retval asCONTEXT_ACTIVE A context is still active.
@@ -918,6 +934,7 @@ extern "C"
 	AS_API int               asThreadCleanup();
 
 	// Memory management
+	//! \ingroup api_memory_functions
 	//! \brief Set the memory management functions that AngelScript should use.
 	//! \param[in] allocFunc The function that will be used to allocate memory.
 	//! \param[in] freeFunc The function that will be used to free the memory.
@@ -925,25 +942,29 @@ extern "C"
 	//!
 	//! Call this method to register the global memory allocation and deallocation
 	//! functions that AngelScript should use for memory management. This function
-	//! Should be called before \ref asCreateScriptEngine.
+	//! should be called before \ref asCreateScriptEngine.
 	//!
 	//! If not called, AngelScript will use the malloc and free functions from the
 	//! standard C library.
 	AS_API int   asSetGlobalMemoryFunctions(asALLOCFUNC_t allocFunc, asFREEFUNC_t freeFunc);
+	//! \ingroup api_memory_functions
 	//! \brief Remove previously registered memory management functions.
 	//! \return A negative value on error.
 	//!
 	//! Call this method to restore the default memory management functions.
 	AS_API int   asResetGlobalMemoryFunctions();
+	//! \ingroup api_memory_functions
 	//! \brief Allocate memory using the memory function registered with AngelScript
 	//! \param[in] size The size of the buffer to allocate
 	//! \return A pointer to the allocated buffer, or null on error.
 	AS_API void *asAllocMem(size_t size);
+	//! \ingroup api_memory_functions
 	//! \brief Deallocates memory using the memory function registered with AngelScript
 	//! \param[in] mem A pointer to the buffer to deallocate
 	AS_API void  asFreeMem(void *mem);
 
 	// Auxiliary
+	//! \ingroup api_multithread_functions
 	//! \brief Create a lockable shared boolean
 	//! \return A new lockable shared boolean.
 	//!
@@ -966,6 +987,7 @@ END_AS_NAMESPACE
 BEGIN_AS_NAMESPACE
 #endif
 
+//! \ingroup api_principal_functions
 //! \brief Returns the appropriate flags for use with RegisterObjectType.
 //! \tparam T The type for which the flags should be determined
 //! \return The flags necessary to register this type as a value type
@@ -1043,6 +1065,15 @@ asUINT asGetTypeTraits()
 
 // Interface declarations
 
+//! \defgroup api_principal_interfaces Principal interfaces
+//! \defgroup api_secondary_interfaces Secondary interfaces
+//! \defgroup api_auxiliary_interfaces Auxiliary interfaces
+//! \defgroup api_principal_functions Principal functions
+//! \defgroup api_memory_functions Memory functions
+//! \defgroup api_multithread_functions Multi-thread support functions
+//! \defgroup api_auxiliary_functions Auxiliary functions
+
+//! \ingroup api_principal_interfaces
 //! \brief The engine interface
 //!
 //! The engine is the central object. It is where the application 
@@ -1221,7 +1252,7 @@ public:
 	//! \brief Registers a global property.
 	//! \param[in] declaration The declaration of the global property in script syntax.
 	//! \param[in] pointer The address of the property that will be used to access the property value.
-	//! \return A negative value on error.
+	//! \return The index of the property on success, or a negative value on error.
 	//! \retval asINVALID_DECLARATION The declaration has invalid syntax.
 	//! \retval asINVALID_TYPE The declaration is a reference.
 	//! \retval asINVALID_ARG The pointer is null.
@@ -1235,6 +1266,11 @@ public:
 	//! the actual value. The application must also make sure that this address
 	//! remains valid throughout the life time of this registration, i.e. until
 	//! the engine is released or the dynamic configuration group is removed.
+	//!
+	//! Upon success the function returns the index of the registered property  
+	//! that can be used to lookup the info with \ref GetGlobalPropertyByIndex.
+	//! Note that this index may not stay valid after a \ref doc_adv_dynamic_config "dynamic config group" has 
+	//! been removed, which would reorganize the internal structure.
 	virtual int    RegisterGlobalProperty(const char *declaration, void *pointer) = 0;
 	//! \brief Returns the number of registered global properties.
 	//! \return The number of registered global properties.
@@ -1255,6 +1291,12 @@ public:
 	//! \param[in] name The name of the property.
 	//! \return The index of the matching property or negative on error.
 	//! \retval asNO_GLOBAL_VAR No matching property was found.
+	//! \retval asINVALID_ARG The name and scope for search cannot be determined.
+	//!
+	//! The search for global properties will be performed in the default namespace as given 
+	//! by \ref SetDefaultNamespace unless the name is prefixed with a scope, using 
+	//! the scoping operator ::. If the scope starts with :: it will be used as the 
+	//! absolute scope, otherwise it will be relative to the default namespace.
 	virtual int    GetGlobalPropertyIndexByName(const char *name) const = 0;
 	//! \brief Returns the index of the property.
 	//! \param[in] decl The declaration of the property to search for.
@@ -1293,7 +1335,7 @@ public:
 	//! \param[in] byteOffset The offset into the memory block where this property is found.
 	//! \param[in] compositeOffset The offset to the composite object.
 	//! \param[in] isCompositeIndirect Set to false if the composite object is inline, and true if it is refered to by pointer.
-	//! \return A negative value on error.
+	//! \return The index of the property on success, or a negative value on error.
 	//! \retval asWRONG_CONFIG_GROUP The object type was registered in a different configuration group.
 	//! \retval asINVALID_OBJECT The \a obj does not specify an object type.
 	//! \retval asINVALID_TYPE The \a obj parameter has invalid syntax.
@@ -1312,6 +1354,9 @@ public:
 	//! In case the property to be registered is part of a composite member, then the compositeOffset should be used
 	//! to give the offset to the composite member, and byteOffset should be the offset to the property in that composite member.
 	//! If the composite member is inline then set isCompositeIndirect as false, else set it to true for proper indirection.
+	//!
+	//! The method returns the index of the property upon success. This can be used to look up the 
+	//! property in the object type with \ref asITypeInfo::GetProperty.
 	virtual int            RegisterObjectProperty(const char *obj, const char *declaration, int byteOffset, int compositeOffset = 0, bool isCompositeIndirect = false) = 0;
 	//! \brief Registers a method for the object type.
 	//! \param[in] obj The name of the type.
@@ -1356,14 +1401,13 @@ public:
 	//! \param[in] isCompositeIndirect Set to false if the composite object is inline, and true if it is refered to by pointer.
 	//! \return A negative value on error, or the function id is successful.
 	//! \retval asWRONG_CONFIG_GROUP The object type was registered in a different configuration group.
-	//! \retval asINVALID_ARG \a obj is not set, or a global behaviour is given in \a behaviour.
+	//! \retval asINVALID_ARG \a obj is not set, or a global behaviour is given in \a behaviour, or the \a objForThiscall pointer wasn't set according to calling convention.
 	//! \retval asWRONG_CALLING_CONV The function's calling convention isn't compatible with \a callConv.
 	//! \retval asNOT_SUPPORTED The calling convention or the behaviour signature is not supported.
 	//! \retval asINVALID_TYPE The \a obj parameter is not a valid object name.
 	//! \retval asINVALID_DECLARATION The \a declaration is invalid.
 	//! \retval asILLEGAL_BEHAVIOUR_FOR_TYPE The \a behaviour is not allowed for this type.
 	//! \retval asALREADY_REGISTERED The behaviour is already registered with the same signature.
-	//! \retval asINVALID_ARG The \a objForThiscall pointer wasn't set according to calling convention.
 	//!
 	//! Use this method to register behaviour functions that will be called by
 	//! the virtual machine to perform certain operations, such as memory management,
@@ -1465,10 +1509,9 @@ public:
 	//! \brief Registers an enum type.
 	//! \param[in] type The name of the enum type.
 	//! \return The type id on success, or a negative value on error.
-	//! \retval asINVALID_NAME \a type is null.
+	//! \retval asINVALID_NAME \a type is null, not an identifier, or it is a reserved keyword.
 	//! \retval asALREADY_REGISTERED Another type with this name already exists.
 	//! \retval asERROR The \a type couldn't be parsed.
-	//! \retval asINVALID_NAME The \a type is not an identifier, or it is a reserved keyword.
 	//! \retval asNAME_TAKEN The type name is already taken.
 	//!
 	//! This method registers an enum type in the engine. The enum values should then be registered 
@@ -1533,10 +1576,9 @@ public:
 	//! \param[in] type The name of the new typedef
 	//! \param[in] decl The datatype that the typedef represents
 	//! \return The type id on success, else a negative value on error.
-	//! \retval asINVALID_NAME The \a type is null.
+	//! \retval asINVALID_NAME The \a type is null, is not an identifier, or it is a reserved keyword.
 	//! \retval asALREADY_REGISTERED A type with the same name already exists.
 	//! \retval asINVALID_TYPE The \a decl is not a primitive type.
-	//! \retval asINVALID_NAME The \a type is not an identifier, or it is a reserved keyword.
 	//! \retval asNAME_TAKEN The name is already used elsewhere.
 	//!
 	//! This method registers an alias for a data type.
@@ -1705,7 +1747,10 @@ public:
 	//! \param[in] name The name of the type.
 	//! \return The type interface for the type, or null if not found.
 	//!
-	//! This does not increase the reference count of the returned type info.
+	//! The search for types will be performed in the default namespace as given 
+	//! by \ref SetDefaultNamespace unless the name is prefixed with a scope, using 
+	//! the scoping operator ::. If the scope starts with :: it will be used as the 
+	//! absolute scope, otherwise it will be relative to the default namespace.
 	virtual asITypeInfo   *GetTypeInfoByName(const char *name) const = 0;
 	//! \brief Returns a type by declaration.
 	//! \param[in] decl The declaration of the type.
@@ -2095,6 +2140,7 @@ protected:
 	virtual ~asIScriptEngine() {}
 };
 
+//! \ingroup api_secondary_interfaces
 //! \brief The interface for the string factory
 //!
 //! This interface is used to manage the string constants that the scripts
@@ -2143,6 +2189,7 @@ protected:
 };
 #endif
 
+//! \ingroup api_auxiliary_functions
 //! \brief The interface for the thread manager
 //!
 //! This interface is used to represent the internal thread manager
@@ -2157,6 +2204,7 @@ protected:
 	virtual ~asIThreadManager() {}
 };
 
+//! \ingroup api_principal_interfaces
 //! \brief The interface to the script modules
 //!
 //! A script module can be thought of a library of script functions, classes, and global variables. 
@@ -2335,6 +2383,11 @@ public:
 	//! \brief Returns the function by its name
 	//! \param[in] name The function name
 	//! \return The function or null if not found or there are multiple matches.
+	//!
+	//! The search for functions will be performed in the default namespace as given 
+	//! by \ref SetDefaultNamespace unless the name is prefixed with a scope, using 
+	//! the scoping operator ::. If the scope starts with :: it will be used as the 
+	//! absolute scope, otherwise it will be relative to the default namespace.
 	virtual asIScriptFunction *GetFunctionByName(const char *name) const = 0;
 	//! \brief Remove a single function from the scope of the module
 	//! \param[in] func The pointer to the function that should be removed.
@@ -2367,13 +2420,15 @@ public:
 	//! \brief Returns the global variable index by name.
 	//! \param[in] name The name of the global variable.
 	//! \return A negative value on error, or the global variable index.
-	//! \retval asERROR The module was not built successfully.
+	//! \retval asINVALID_ARG The name and scope for search cannot be determined
 	//! \retval asNO_GLOBAL_VAR The matching global variable was found.
 	//!
 	//! This method should be used to retrieve the index of the script variable that you wish to access.
 	//!
-	//! If the variable is declared in a namespace first call \ref SetDefaultNamespace 
-	//! to set the namespace that should be searched first for the variable.
+	//! The search for global variables will be performed in the default namespace as given 
+	//! by \ref SetDefaultNamespace unless the name is prefixed with a scope, using 
+	//! the scoping operator ::. If the scope starts with :: it will be used as the 
+	//! absolute scope, otherwise it will be relative to the default namespace.
 	virtual int         GetGlobalVarIndexByName(const char *name) const = 0;
 	//! \brief Returns the global variable index by declaration.
 	//! \param[in] decl The global variable declaration.
@@ -2460,7 +2515,10 @@ public:
 	//! \param[in] name The name of the type.
 	//! \return The type interface for the type, or null if not found.
 	//!
-	//! This does not increase the reference count of the returned type info.
+	//! The search for types will be performed in the default namespace as given 
+	//! by \ref SetDefaultNamespace unless the name is prefixed with a scope, using 
+	//! the scoping operator ::. If the scope starts with :: it will be used as the 
+	//! absolute scope, otherwise it will be relative to the default namespace.
 	virtual asITypeInfo   *GetTypeInfoByName(const char *name) const = 0;
 	//! \brief Returns a type by declaration.
 	//! \param[in] decl The declaration of the type.
@@ -2638,6 +2696,7 @@ protected:
 	virtual ~asIScriptModule() {}
 };
 
+//! \ingroup api_principal_interfaces
 //! \brief The interface to the virtual machine
 //!
 //! The script context provides the interface for a single script execution. The object stores the call
@@ -3177,6 +3236,7 @@ protected:
 	virtual ~asIScriptContext() {}
 };
 
+//! \ingroup api_secondary_interfaces
 //! \brief The interface for the generic calling convention
 class asIScriptGeneric
 {
@@ -3347,6 +3407,7 @@ protected:
 	virtual ~asIScriptGeneric() {}
 };
 
+//! \ingroup api_secondary_interfaces
 //! \brief The interface for an instance of a script object
 class asIScriptObject
 {
@@ -3425,7 +3486,7 @@ public:
 	//! \retval asINVALID_TYPE The other object is of different type.
 	//!
 	//! This method copies the contents of the other object to this one.
-	virtual int              CopyFrom(asIScriptObject *other) = 0;
+	virtual int              CopyFrom(const asIScriptObject *other) = 0;
 	//! \}
 
 	// User data
@@ -3456,7 +3517,7 @@ protected:
 };
 
 
-
+//! \ingroup api_secondary_interfaces
 //! \brief The interface for describing types
 //! This interface is used to describe the types in the script engine. 
 //!
@@ -3756,6 +3817,7 @@ protected:
 	virtual ~asITypeInfo() {}
 };
 
+//! \ingroup api_secondary_interfaces
 //! \brief The interface for a script function description
 class asIScriptFunction
 {
@@ -3859,9 +3921,12 @@ public:
 	//! \brief Returns true if the function is shared.
 	//! \return True if the function is shared.
 	virtual bool             IsShared() const = 0;
-	//! \brief Returns true if the function is declared as explicit.
+	//! \brief Returns true if the function is declared as 'explicit'.
 	//! \return True if the function is explicit.
 	virtual bool             IsExplicit() const = 0;
+	//! \brief Returns true if the function is declared as 'property'.
+	//! \return True if the function is a property accessor.
+	virtual bool             IsProperty() const = 0;
 	//! \brief Returns the number of parameters for this function.
 	//! \return The number of parameters.
 	virtual asUINT           GetParamCount() const = 0;
@@ -3976,6 +4041,7 @@ protected:
 	virtual ~asIScriptFunction() {};
 };
 
+//! \ingroup api_auxiliary_interfaces
 //! \brief A binary stream interface.
 //!
 //! This interface is used when storing compiled bytecode to disk or memory, and then loading it into the engine again.
@@ -4003,6 +4069,7 @@ public:
 	virtual ~asIBinaryStream() {}
 };
 
+//! \ingroup api_auxiliary_interfaces
 //! \brief A lockable shared boolean.
 //!
 //! This interface represents a lockable shared boolean.
@@ -4248,6 +4315,7 @@ struct asSVMRegisters
 //! \see \ref doc_adv_jit
 typedef void (*asJITFunction)(asSVMRegisters *registers, asPWORD jitArg);
 
+//! \ingroup api_auxiliary_interfaces
 //! \brief The interface that AS use to interact with the JIT compiler
 //!
 //! This is the minimal interface that the JIT compiler must implement

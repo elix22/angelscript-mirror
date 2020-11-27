@@ -6,7 +6,7 @@
 namespace TestRegisterType
 {
 
-void DummyFunc(asIScriptGeneric *) {}
+void DummyFunc(asIScriptGeneric*) {}
 
 bool TestHandleType();
 bool TestIrrTypes();
@@ -15,7 +15,7 @@ bool TestAlignedScoped();
 bool TestHelper();
 
 int g_widget;
-int *CreateWidget()
+int* CreateWidget()
 {
 	return &g_widget;
 }
@@ -23,28 +23,28 @@ int *CreateWidget()
 class CVariant
 {
 public:
-	CVariant(asIScriptEngine *engine) { m_engine = engine; m_typeId = 0; m_valueObj = 0; }
-	CVariant(const CVariant &o) { m_engine = o.m_engine; m_typeId = 0; m_valueObj = 0; Set(const_cast<void**>(&o.m_valueObj), o.m_typeId); }
+	CVariant(asIScriptEngine* engine) { m_engine = engine; m_typeId = 0; m_valueObj = 0; }
+	CVariant(const CVariant& o) { m_engine = o.m_engine; m_typeId = 0; m_valueObj = 0; Set(const_cast<void**>(&o.m_valueObj), o.m_typeId); }
 	~CVariant() { Clear(); }
-	CVariant &operator=(const CVariant &o)
+	CVariant& operator=(const CVariant& o)
 	{
 		Set(const_cast<void**>(&o.m_valueObj), o.m_typeId);
 		return *this;
 	}
 
 	// AngelScript: used as var = expr
-	CVariant &opAssign(void *val, int typeId)
+	CVariant& opAssign(void* val, int typeId)
 	{
 		Set(val, typeId);
 		return *this;
 	}
 
 	// AngelScript: used as @var = expr
-	CVariant &opHandleAssign(void *hndl, int typeId)
+	CVariant& opHandleAssign(void* hndl, int typeId)
 	{
-		if( (typeId & asTYPEID_OBJHANDLE) == 0 )
+		if ((typeId & asTYPEID_OBJHANDLE) == 0)
 		{
-			void **tmp = &hndl;
+			void** tmp = &hndl;
 			Set(tmp, typeId | asTYPEID_OBJHANDLE);
 			return *this;
 		}
@@ -54,21 +54,21 @@ public:
 	}
 
 	// AngelScript: used as @obj = cast<obj>(var)
-	void opCast(void **outRef, int outTypeId)
+	void opCast(void** outRef, int outTypeId)
 	{
 		// If we don't hold an object, then just return null
-		if( (m_typeId & asTYPEID_MASK_OBJECT) == 0 )
+		if ((m_typeId & asTYPEID_MASK_OBJECT) == 0)
 		{
 			*outRef = 0;
 			return;
 		}
 
 		// It is expected that the outRef is always a handle
-		assert( outTypeId & asTYPEID_OBJHANDLE );
+		assert(outTypeId & asTYPEID_OBJHANDLE);
 
 		// Compare the type id of the actual object
-		asITypeInfo *wantedType = m_engine->GetTypeInfoById(outTypeId);
-		asITypeInfo *heldType = m_engine->GetTypeInfoById(m_typeId);
+		asITypeInfo* wantedType = m_engine->GetTypeInfoById(outTypeId);
+		asITypeInfo* heldType = m_engine->GetTypeInfoById(m_typeId);
 
 		*outRef = 0;
 
@@ -77,29 +77,29 @@ public:
 	}
 
 	// AngelScript: used as int(var)
-	void opConv(void *outRef, int outTypeId)
+	void opConv(void* outRef, int outTypeId)
 	{
 		// Return the value
-		if( outTypeId & asTYPEID_OBJHANDLE )
+		if (outTypeId & asTYPEID_OBJHANDLE)
 		{
 			// A handle can be retrieved if the stored type is a handle of same or compatible type
 			// or if the stored type is an object that implements the interface that the handle refer to.
-			if( (m_typeId & asTYPEID_MASK_OBJECT) )
+			if ((m_typeId & asTYPEID_MASK_OBJECT))
 			{
 				m_engine->RefCastObject(m_valueObj, m_engine->GetTypeInfoById(m_typeId), m_engine->GetTypeInfoById(outTypeId), (void**)outRef);
 
 				return;
 			}
 		}
-		else if( outTypeId & asTYPEID_MASK_OBJECT )
+		else if (outTypeId & asTYPEID_MASK_OBJECT)
 		{
 			// Verify that the copy can be made
 			bool isCompatible = false;
-			if( m_typeId == outTypeId )
+			if (m_typeId == outTypeId)
 				isCompatible = true;
 
 			// Copy the object into the given reference
-			if( isCompatible )
+			if (isCompatible)
 			{
 				m_engine->AssignScriptObject(outRef, m_valueObj, m_engine->GetTypeInfoById(outTypeId));
 
@@ -108,7 +108,7 @@ public:
 		}
 		else
 		{
-			if( m_typeId == outTypeId )
+			if (m_typeId == outTypeId)
 			{
 				int size = m_engine->GetSizeOfPrimitiveType(outTypeId);
 				memcpy(outRef, &m_valueInt, size);
@@ -116,12 +116,12 @@ public:
 			}
 
 			// We know all numbers are stored as either int64 or double, since we register overloaded functions for those
-			if( m_typeId == asTYPEID_INT64 && outTypeId == asTYPEID_DOUBLE )
+			if (m_typeId == asTYPEID_INT64 && outTypeId == asTYPEID_DOUBLE)
 			{
 				*(double*)outRef = double(m_valueInt);
 				return;
 			}
-			else if( m_typeId == asTYPEID_DOUBLE && outTypeId == asTYPEID_INT64 )
+			else if (m_typeId == asTYPEID_DOUBLE && outTypeId == asTYPEID_INT64)
 			{
 				*(asINT64*)outRef = asINT64(m_valueFlt);
 				return;
@@ -129,17 +129,17 @@ public:
 		}
 	}
 
-	void Set(void *value, int typeId)
+	void Set(void* value, int typeId)
 	{
 		Clear();
 		m_typeId = typeId;
-		if( typeId & asTYPEID_OBJHANDLE )
+		if (typeId & asTYPEID_OBJHANDLE)
 		{
 			// We're receiving a reference to the handle, so we need to dereference it
 			m_valueObj = *(void**)value;
 			m_engine->AddRefScriptObject(m_valueObj, m_engine->GetTypeInfoById(typeId));
 		}
-		else if( typeId & asTYPEID_MASK_OBJECT )
+		else if (typeId & asTYPEID_MASK_OBJECT)
 		{
 			// Create a copy of the object
 			m_valueObj = m_engine->CreateScriptObjectCopy(value, m_engine->GetTypeInfoById(typeId));
@@ -156,7 +156,7 @@ public:
 	void Clear()
 	{
 		// If it is a handle or a ref counted object, call release
-		if( m_typeId & asTYPEID_MASK_OBJECT )
+		if (m_typeId & asTYPEID_MASK_OBJECT)
 		{
 			// Let the engine release the object
 			m_engine->ReleaseScriptObject(m_valueObj, m_engine->GetTypeInfoById(m_typeId));
@@ -166,44 +166,44 @@ public:
 		m_valueObj = 0;
 	}
 
-	static void Register(asIScriptEngine *engine)
+	static void Register(asIScriptEngine* engine)
 	{
 		int r;
-		r = engine->RegisterObjectType("var", sizeof(CVariant), asOBJ_VALUE | asOBJ_ASHANDLE | asOBJ_APP_CLASS_CDAK); assert( r >= 0 );
-		r = engine->RegisterObjectBehaviour("var", asBEHAVE_CONSTRUCT, "void f()", asFUNCTION(CVariant::Construct), asCALL_CDECL_OBJLAST); assert( r >= 0 );
-		r = engine->RegisterObjectBehaviour("var", asBEHAVE_CONSTRUCT, "void f(const var &in)", asFUNCTION(CVariant::CopyConstruct), asCALL_CDECL_OBJLAST); assert( r >= 0 );
-		r = engine->RegisterObjectBehaviour("var", asBEHAVE_DESTRUCT, "void f()", asFUNCTION(CVariant::Destruct), asCALL_CDECL_OBJLAST); assert( r >= 0 );
+		r = engine->RegisterObjectType("var", sizeof(CVariant), asOBJ_VALUE | asOBJ_ASHANDLE | asOBJ_APP_CLASS_CDAK); assert(r >= 0);
+		r = engine->RegisterObjectBehaviour("var", asBEHAVE_CONSTRUCT, "void f()", asFUNCTION(CVariant::Construct), asCALL_CDECL_OBJLAST); assert(r >= 0);
+		r = engine->RegisterObjectBehaviour("var", asBEHAVE_CONSTRUCT, "void f(const var &in)", asFUNCTION(CVariant::CopyConstruct), asCALL_CDECL_OBJLAST); assert(r >= 0);
+		r = engine->RegisterObjectBehaviour("var", asBEHAVE_DESTRUCT, "void f()", asFUNCTION(CVariant::Destruct), asCALL_CDECL_OBJLAST); assert(r >= 0);
 
-		r = engine->RegisterObjectMethod("var", "var &opAssign(const ?&in)", asMETHOD(CVariant, opAssign), asCALL_THISCALL); assert( r >= 0 );
-		r = engine->RegisterObjectMethod("var", "var &opHndlAssign(const ?&in)", asMETHOD(CVariant, opHandleAssign), asCALL_THISCALL); assert( r >= 0 );
+		r = engine->RegisterObjectMethod("var", "var &opAssign(const ?&in)", asMETHOD(CVariant, opAssign), asCALL_THISCALL); assert(r >= 0);
+		r = engine->RegisterObjectMethod("var", "var &opHndlAssign(const ?&in)", asMETHOD(CVariant, opHandleAssign), asCALL_THISCALL); assert(r >= 0);
 
-		r = engine->RegisterObjectMethod("var", "void opCast(?&out)", asMETHOD(CVariant, opCast), asCALL_THISCALL); assert( r >= 0 );
-		r = engine->RegisterObjectMethod("var", "void opConv(?&out)", asMETHOD(CVariant, opConv), asCALL_THISCALL); assert( r >= 0 );
+		r = engine->RegisterObjectMethod("var", "void opCast(?&out)", asMETHOD(CVariant, opCast), asCALL_THISCALL); assert(r >= 0);
+		r = engine->RegisterObjectMethod("var", "void opConv(?&out)", asMETHOD(CVariant, opConv), asCALL_THISCALL); assert(r >= 0);
 	}
 
-	static void Construct(void *mem)
+	static void Construct(void* mem)
 	{
-		asIScriptContext *ctx = asGetActiveContext();
+		asIScriptContext* ctx = asGetActiveContext();
 		new (mem) CVariant(ctx->GetEngine());
 	}
 
-	static void CopyConstruct(const CVariant &o, void *mem)
+	static void CopyConstruct(const CVariant& o, void* mem)
 	{
 		new (mem) CVariant(o);
 	}
 
-	static void Destruct(CVariant &obj)
+	static void Destruct(CVariant& obj)
 	{
 		obj.~CVariant();
 	}
 
 public:
-	asIScriptEngine *m_engine;
+	asIScriptEngine* m_engine;
 	union
 	{
 		asINT64 m_valueInt;
 		double  m_valueFlt;
-		void   *m_valueObj;
+		void* m_valueObj;
 	};
 	int   m_typeId;
 };
@@ -213,7 +213,7 @@ public:
 typedef struct asBehavior_s
 {
 	asEBehaviours behavior;
-	const char * declaration;
+	const char* declaration;
 	asSFuncPtr funcPointer;
 	asECallConvTypes callConv;
 } asBehavior_t;

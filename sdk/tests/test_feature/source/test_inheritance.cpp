@@ -79,6 +79,13 @@ public:
 
 		return isValid;
 	}
+	
+	FooScripted &operator=(const FooScripted &o)
+	{
+		// Copy only the content, not the script proxy class
+		m_value = o.m_value;
+		return *this;
+	}
 
 protected:
 	FooScripted(asIScriptObject *obj) 
@@ -115,6 +122,132 @@ bool Test()
 	CBufferedOutStream bout;
  	asIScriptEngine *engine = 0;
 
+	// Script class inheriting from an application class through proxy and copy object
+	// https://www.gamedev.net/forums/topic/704232-add-ref-proxy-class-causes-crash-in-asiscriptobjectoperator-due-to-early-destruction/
+	{
+		engine = asCreateScriptEngine(ANGELSCRIPT_VERSION);
+		engine->SetMessageCallback(asMETHOD(COutStream, Callback), &out, asCALL_THISCALL);
+
+		engine->RegisterGlobalFunction("void assert( bool )", asFUNCTION(Assert), asCALL_GENERIC);
+
+		engine->RegisterObjectType("FooScripted_t", 0, asOBJ_REF);
+		engine->RegisterObjectBehaviour("FooScripted_t", asBEHAVE_FACTORY, "FooScripted_t @f()", asFUNCTION(FooScripted::Factory), asCALL_CDECL);
+		engine->RegisterObjectBehaviour("FooScripted_t", asBEHAVE_ADDREF, "void f()", asMETHOD(FooScripted, AddRef), asCALL_THISCALL);
+		engine->RegisterObjectBehaviour("FooScripted_t", asBEHAVE_RELEASE, "void f()", asMETHOD(FooScripted, Release), asCALL_THISCALL);
+		engine->RegisterObjectMethod("FooScripted_t", "FooScripted_t &opAssign(const FooScripted_t &in)", asMETHOD(FooScripted, operator=), asCALL_THISCALL);
+		engine->RegisterObjectMethod("FooScripted_t", "void CallMe()", asMETHOD(FooScripted, CallMe), asCALL_THISCALL);
+		engine->RegisterObjectProperty("FooScripted_t", "int m_value", asOFFSET(FooScripted, m_value));
+
+		mod = engine->GetModule("Foo", asGM_ALWAYS_CREATE);
+		mod->AddScriptSection("Foo",
+			"shared abstract class FooScripted { \n"
+			"  FooScripted() { \n"
+			"    @m_obj = FooScripted_t(); \n"
+			"  } \n"
+			"  FooScripted(const FooScripted &o) { \n"
+			"    @m_obj = FooScripted_t(); \n" // Create a new C++ instance
+			"    m_obj = o.m_obj; \n"          // copy content of C++ instance
+			"  } \n"
+			"  FooScripted &opAssign(const FooScripted &o) { \n"
+			"    m_obj = o.m_obj; \n"  // copy content of C++ instance
+			"    return this; \n"
+			"  } \n"
+			"  void CallMe() { m_obj.CallMe(); } \n"
+			"  int m_value { \n"
+			"    get { return m_obj.m_value; } \n"
+			"    set { m_obj.m_value = value; } \n"
+			"  } \n"
+			"  FooScripted_t @opImplCast() { \n"
+			"    return m_obj; \n"
+			"  } \n"
+			"  private FooScripted_t @m_obj; \n"
+			"} \n");
+
+		mod->AddScriptSection("Foo2",
+			"class FooDerived : FooScripted { \n"
+			"  void CallMe() { \n"
+			"    m_value += 1; \n"
+			"  } \n"
+			"} \n"
+			"void Test(FooDerived &in bar) { assert( bar.m_value == 1 ); } \n"); // without const to guarantee a copy is made
+
+		r = mod->Build();
+		if( r < 0 )
+			TEST_FAILED;
+
+		r = ExecuteString(engine, "FooDerived f; \n"
+								  "assert( f.m_value == 0 ); \n"
+								  "f.CallMe(); \n"
+								  "Test(f); \n" // makes a copy of f
+								  "f.CallMe(); \n"
+								  "assert( f.m_value == 2 ); \n", mod);
+		if( r != asEXECUTION_FINISHED )
+			TEST_FAILED;
+
+		engine->Release();
+	}
+	
+	
+	// Test default value assignment operator for derived classes
+	// Reported by Aaron Baker
+	{
+		engine = asCreateScriptEngine();
+		engine->SetMessageCallback(asMETHOD(CBufferedOutStream, Callback), &bout, asCALL_THISCALL);
+		bout.buffer = "";
+
+		mod = engine->GetModule("test", asGM_ALWAYS_CREATE);
+		mod->AddScriptSection("test",
+			"class foo \n"
+			"{ \n"
+			"	int type; \n"
+			"	foo() \n"
+			"	{ \n"
+			"		type=0; \n"
+			"	} \n"
+			"} \n"
+			"class bar:foo \n"
+			"{ \n"
+			"	bar() \n"
+			"	{ \n"
+			"		type=1; \n"
+			"	} \n"
+			"} \n"
+			"foo@ make_foo(int type) \n"
+			"{ \n"
+			"	if(type==0) \n"
+			"		return foo(); \n"
+			"	else \n"
+			"		return bar(); \n"
+			"} \n"
+			"void main() \n"
+			"{ \n"
+			"	foo@ a = make_foo(1); \n"
+			"	foo@ copy = make_foo(a.type); \n"
+			"	copy = a; \n"
+			"} \n");
+		r = mod->Build();
+		if (r < 0)
+			TEST_FAILED;
+
+		if (bout.buffer != "")
+		{
+			PRINTF("%s", bout.buffer.c_str());
+			TEST_FAILED;
+		}
+		
+		asIScriptContext *ctx = engine->CreateContext();
+		r = ExecuteString(engine, "main()", mod, ctx);
+		if( r != asEXECUTION_FINISHED )
+		{
+			TEST_FAILED;
+			if( r == asEXECUTION_EXCEPTION )
+				PRINTF("%s", GetExceptionInfo(ctx).c_str());
+		}		
+		ctx->Release();
+
+		engine->ShutDownAndRelease();
+	}
+	
 	// Test that the calling the parent's constructor through super works even when there is a get_super() property accessor
 	// Reported by Patrick Jeeves
 	{

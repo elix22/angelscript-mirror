@@ -1,5 +1,7 @@
 ﻿#include "utils.h"
 
+using namespace std;
+
 namespace TestNamespace
 {
 
@@ -11,6 +13,83 @@ bool Test()
 	COutStream out;
 	CBufferedOutStream bout;
 
+	// Test GetGlobalPropertyIndexByName with namespaces
+	{
+		asIScriptEngine *engine = asCreateScriptEngine();
+		engine->SetMessageCallback(asMETHOD(COutStream, Callback), &out, asCALL_THISCALL);
+
+		engine->SetDefaultNamespace("A");
+		r = engine->RegisterGlobalProperty("int var", (void*)1);
+		if( r < 0 ) TEST_FAILED;
+		engine->SetDefaultNamespace("B");
+		r = engine->RegisterGlobalProperty("int var", (void*)1);
+		if( r < 0 ) TEST_FAILED;
+		engine->SetDefaultNamespace("");
+
+		const char *name = 0, *ns = 0;
+		int v = engine->GetGlobalPropertyIndexByName("A::var");
+		if( v < 0 ) TEST_FAILED;
+		r = engine->GetGlobalPropertyByIndex(v, &name, &ns, 0, 0);
+		if( r < 0 || string(name) != "var" || string(ns) != "A" )
+			TEST_FAILED;
+			
+		v = engine->GetGlobalPropertyIndexByName("B::var");
+		if( v < 0 ) TEST_FAILED;
+		r = engine->GetGlobalPropertyByIndex(v, &name, &ns, 0, 0);
+		if( r < 0 || string(name) != "var" || string(ns) != "B" )
+			TEST_FAILED;
+						
+		engine->SetDefaultNamespace("B");
+		v = engine->GetGlobalPropertyIndexByName("var");
+		if( v < 0 ) TEST_FAILED;
+		r = engine->GetGlobalPropertyByIndex(v, &name, &ns, 0, 0);
+		if( r < 0 || string(name) != "var" || string(ns) != "B" )
+			TEST_FAILED;
+
+		v = engine->GetGlobalPropertyIndexByName("::A::var");
+		if( v < 0 ) TEST_FAILED;
+		r = engine->GetGlobalPropertyByIndex(v, &name, &ns, 0, 0);
+		if( r < 0 || string(name) != "var" || string(ns) != "A" )
+			TEST_FAILED;
+
+		engine->ShutDownAndRelease();	
+	}
+	
+	// Test GetTypeInfoByName with namespaces
+	{
+		asIScriptEngine *engine = asCreateScriptEngine();
+		engine->SetMessageCallback(asMETHOD(COutStream, Callback), &out, asCALL_THISCALL);
+
+		engine->SetDefaultNamespace("A");
+		r = engine->RegisterEnum("Foo");
+		if( r < 0 ) TEST_FAILED;
+		engine->SetDefaultNamespace("B");
+		r = engine->RegisterEnum("Foo");
+		if( r < 0 ) TEST_FAILED;
+		engine->SetDefaultNamespace("");
+
+		
+		const char *name = 0, *ns = 0;
+		asITypeInfo *info = engine->GetTypeInfoByName("A::Foo");
+		if( info == 0 || string(info->GetName()) != "Foo" || string(info->GetNamespace()) != "A" )
+			TEST_FAILED;
+			
+		info = engine->GetTypeInfoByName("B::Foo");
+		if( info == 0 || string(info->GetName()) != "Foo" || string(info->GetNamespace()) != "B" )
+			TEST_FAILED;
+						
+		engine->SetDefaultNamespace("B");
+		info = engine->GetTypeInfoByName("Foo");
+		if( info == 0 || string(info->GetName()) != "Foo" || string(info->GetNamespace()) != "B" )
+			TEST_FAILED;
+
+		info = engine->GetTypeInfoByName("::A::Foo");
+		if( info == 0 || string(info->GetName()) != "Foo" || string(info->GetNamespace()) != "A" )
+			TEST_FAILED;
+
+		engine->ShutDownAndRelease();	
+	}
+	
 	// Test correct declaration from GetDeclaration when returning class method using types from different namespace
 	// https://www.gamedev.net/forums/topic/698616-version-2330-wip-vs-version-2321-wip/
 	{
@@ -1476,8 +1555,8 @@ bool Test()
 		engine->RegisterGlobalFunction("void assert(bool)", asFUNCTION(Assert), asCALL_GENERIC);
 
 		const char *script = 
-			"int get_foo() { return 42; } \n"
-			"namespace nm { int get_foo2() { return 42; } } \n"
+			"int get_foo() property { return 42; } \n"
+			"namespace nm { int get_foo2() property { return 42; } } \n"
 			"void test() { \n"
 			"  assert( foo == 42 ); \n"      // ok
 			"  assert( ::foo == 42 ); \n"    // ok
@@ -1514,8 +1593,8 @@ bool Test()
 
 		// Indexed property accessors
 		script = 
-			"int get_foo(uint) { return 42; } \n"
-			"namespace nm { int get_foo2(uint) { return 42; } } \n"
+			"int get_foo(uint) property { return 42; } \n"
+			"namespace nm { int get_foo2(uint) property { return 42; } } \n"
 			"void test() { \n"
 			"  assert( foo[0] == 42 ); \n"      // ok
 			"  assert( ::foo[0] == 42 ); \n"    // ok

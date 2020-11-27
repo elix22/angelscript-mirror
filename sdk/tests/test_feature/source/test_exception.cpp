@@ -52,12 +52,54 @@ void ThrowException()
 	throw std::exception();
 }
 
+class foo
+{
+	public:
+	int *opIndex_ThrowException(int) { throw std::exception(); return 0; }
+};
+
+class Dummy
+{
+public:
+	Dummy() {refCount = 1;}
+	~Dummy() {};
+	void AddRef() {refCount++;}
+	void Release() { if( --refCount == 0 ) delete this; }
+	int refCount;
+	static Dummy *Factory() { asGetActiveContext()->SetException("...", true); return new Dummy(); }
+};
+
 bool Test()
 {
 	bool fail = false;
 	int r;
 	COutStream out;
 	CBufferedOutStream bout;
+
+	// Test script exception in registered factory function
+	// https://www.gamedev.net/forums/topic/704577-throwing-script-exception-from-factory-function/
+	SKIP_ON_MAX_PORT
+	{
+		asIScriptEngine *engine = asCreateScriptEngine();
+		engine->SetMessageCallback(asMETHOD(CBufferedOutStream, Callback), &bout, asCALL_THISCALL);
+		bout.buffer = "";
+		engine->RegisterObjectType("Dummy", 0, asOBJ_REF);
+		engine->RegisterObjectBehaviour("Dummy", asBEHAVE_FACTORY, "Dummy @f()", asFUNCTION(Dummy::Factory), asCALL_CDECL);
+		engine->RegisterObjectBehaviour("Dummy", asBEHAVE_ADDREF, "void f()", asMETHOD(Dummy, AddRef), asCALL_THISCALL);
+		engine->RegisterObjectBehaviour("Dummy", asBEHAVE_RELEASE, "void f()", asMETHOD(Dummy, Release), asCALL_THISCALL);
+
+		r = ExecuteString(engine, "Dummy D();");
+		if( r != asEXECUTION_EXCEPTION )
+			TEST_FAILED;
+
+		if (bout.buffer != "")
+		{
+			PRINTF("%s", bout.buffer.c_str());
+			TEST_FAILED;
+		}	
+		
+		engine->ShutDownAndRelease();
+	}
 
 	// Test to make sure catching two exceptions in a row works
 	// https://www.gamedev.net/forums/topic/700622-catching-two-in-a-row/
@@ -378,6 +420,36 @@ bool Test()
 
 		asIScriptContext *ctx = engine->CreateContext();
 		r = ExecuteString(engine, "ThrowException()", 0, ctx);
+		if (r != asEXECUTION_EXCEPTION)
+		{
+			TEST_FAILED;
+		}
+		if (ctx->GetExceptionString() == 0 || 
+			(string(ctx->GetExceptionString()) != "Unknown exception" && // msvc
+			 string(ctx->GetExceptionString()) != "std::exception"))      // gnuc
+		{
+			PRINTF("Exception: '%s'\n", ctx->GetExceptionString());
+			TEST_FAILED;
+		}
+		ctx->Release();
+
+		engine->ShutDownAndRelease();
+	}
+
+	// Test exception translation in opIndex(int) (asBC_Thiscall1)
+	// Reported by Quentin Cosendey
+	SKIP_ON_MAX_PORT
+	{
+		asIScriptEngine *engine = asCreateScriptEngine();
+		engine->SetMessageCallback(asMETHOD(COutStream, Callback), &out, asCALL_THISCALL);
+
+		engine->SetTranslateAppExceptionCallback(asFUNCTION(TranslateException), 0, asCALL_CDECL);
+
+		engine->RegisterObjectType("foo", sizeof(foo), asOBJ_VALUE | asOBJ_POD);
+		engine->RegisterObjectMethod("foo", "int &opIndex(int)", asMETHOD(foo, opIndex_ThrowException), asCALL_THISCALL);
+
+		asIScriptContext *ctx = engine->CreateContext();
+		r = ExecuteString(engine, "foo bar; bar[0]", 0, ctx);
 		if (r != asEXECUTION_EXCEPTION)
 		{
 			TEST_FAILED;

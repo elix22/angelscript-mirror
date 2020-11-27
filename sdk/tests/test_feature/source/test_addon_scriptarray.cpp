@@ -215,6 +215,101 @@ bool Test()
 	asIScriptContext *ctx;
 	asIScriptEngine *engine;
 
+	// Test array init list with object handles
+	// https://www.gamedev.net/forums/topic/707320-bug-cscriptarray-last-item-is-null-for-arrayltobjectgt-initialized-by-list-initalizer-syntax/
+	{
+		engine = asCreateScriptEngine();
+		engine->SetMessageCallback(asMETHOD(CBufferedOutStream, Callback), &bout, asCALL_THISCALL);
+		bout.buffer = "";
+
+		engine->RegisterGlobalFunction("void assert(bool)", asFUNCTION(Assert), asCALL_GENERIC);
+		RegisterScriptArray(engine, true);
+
+		asIScriptModule* mod = engine->GetModule("test", asGM_ALWAYS_CREATE);
+		mod->AddScriptSection("test",
+			"class Object { Object(Object @o = null) {} } \n"
+			"class List { \n"
+			"	array<Object@> @objects = { \n"
+			"	  @Object(), \n"
+			"	  @Object(), \n"
+			"	  @Object() \n"
+			"	}; \n"
+			"} \n"
+			"void main() { \n"
+			"  List@ list = List(); \n"
+			"  assert( list.objects.length() == 3 ); \n"
+			"  assert( list.objects[0] !is null ); \n"
+			"  assert( list.objects[1] !is null ); \n"
+			"  assert( list.objects[2] !is null ); \n"
+			"} \n");
+		r = mod->Build();
+		if (r < 0)
+			TEST_FAILED;
+
+		r = ExecuteString(engine, "main()", mod);
+		if (r != asEXECUTION_FINISHED)
+			TEST_FAILED;
+
+		if (bout.buffer != "")
+		{
+			PRINTF("%s", bout.buffer.c_str());
+			TEST_FAILED;
+		}
+
+		engine->ShutDownAndRelease();
+	}
+
+	// Test value assign from array holding handles
+	// reported by Aaron Baker
+	{
+		engine = asCreateScriptEngine();
+		engine->SetMessageCallback(asMETHOD(CBufferedOutStream, Callback), &bout, asCALL_THISCALL);
+		bout.buffer = "";
+
+		engine->RegisterGlobalFunction("void assert(bool)", asFUNCTION(Assert), asCALL_GENERIC);
+		RegisterScriptArray(engine, true);
+
+		asIScriptModule *mod = engine->GetModule("test", asGM_ALWAYS_CREATE);
+		mod->AddScriptSection("test",
+			"class character {} \n"
+			"void main() { \n"
+			"  array<character@> party; \n"
+			"  character copy; \n"
+			"  copy = party[0]; \n"
+			"} \n");
+		r = mod->Build();
+		if (r < 0)
+			TEST_FAILED;
+
+		if (bout.buffer != "")
+		{
+			PRINTF("%s", bout.buffer.c_str());
+			TEST_FAILED;
+		}
+
+		bout.buffer = "";
+		mod->AddScriptSection("test",
+			"class character { \n"
+			"  character &opAssign(const character &) { return this; } \n"
+			"} \n"
+			"void main() { \n"
+			"  array<character@> party; \n"
+			"  character copy; \n"
+			"  copy = party[0]; \n"
+			"} \n");
+		r = mod->Build();
+		if (r < 0)
+			TEST_FAILED;
+
+		if (bout.buffer != "")
+		{
+			PRINTF("%s", bout.buffer.c_str());
+			TEST_FAILED;
+		}
+		
+		engine->ShutDownAndRelease();		
+	}
+	
 	// Test initialization of array as default arg
 	// https://www.gamedev.net/forums/topic/699878-array-argument-getting-wrong-default-value/
 	{
@@ -336,7 +431,7 @@ bool Test()
 			"	int x; \n"
 			"	Test() { x = 0; } \n"
 			"	Test(int x1) { x = x1; } \n"
-			"	int get_value() const { return x + 10; } \n"
+			"	int value { get const { return x + 10; } } \n"
 			"} \n"
 			"bool less(const Test @&in a, const Test @&in b) { print(a); \n"
 			"		return a.value<b.value; } \n"
@@ -397,7 +492,7 @@ bool Test()
 			"	int x; \n"
 			"	Test() { x = 0; } \n"
 			"	Test(int x1) { x = x1; } \n"
-			"	int get_value() const { return x + 10; } \n"
+			"	int value { get const { return x + 10; } } \n"
 			"} \n"
 			"void main() { \n"
 			"	array<Test@> a = { \n"
@@ -631,7 +726,7 @@ bool Test()
 			TEST_FAILED;
 
 		if( bout.buffer != "ExecuteString (1, 18) : Error   : Can't implicitly convert from '<null handle>' to 'int&'.\n"
-						   "ExecuteString (1, 25) : Error   : Can't implicitly convert from '<null handle>' to 'const string&'.\n" )
+						   "ExecuteString (1, 25) : Error   : Can't implicitly convert from '<null handle>' to 'string&'.\n" )
 		{
 			PRINTF("%s", bout.buffer.c_str());
 			TEST_FAILED;

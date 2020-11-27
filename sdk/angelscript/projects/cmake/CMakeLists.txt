@@ -5,6 +5,10 @@ project(angelscript)
 option(BUILD_SHARED_LIBS "Build shared library" OFF)
 option(AS_NO_EXCEPTIONS "Disable exception handling in script context" OFF)
 
+if(MSVC)
+    option(MSVC_COMPILE_FLAGS "Compiler flags to use with MSVC" "/MP")
+endif()
+
 if(APPLE)
     option(BUILD_FRAMEWORK "Build Framework bundle for OSX" OFF)
 endif()
@@ -112,6 +116,16 @@ if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^arm")
     endif()
 endif()
 
+if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^aarch64")
+    enable_language(ASM)
+    if(CMAKE_ASM_COMPILER_WORKS)
+        set(ANGELSCRIPT_SOURCE ${ANGELSCRIPT_SOURCE} ../../source/as_callfunc_arm64.cpp ../../source/as_callfunc_arm64_gcc.S)
+        #set_property(SOURCE ../../source/as_callfunc_arm64_gcc.S APPEND PROPERTY COMPILE_FLAGS " -Wa")
+    else()
+        message(FATAL ERROR "ARM target requires a working assembler")
+    endif()
+endif()
+
 if(MSVC)
     set(CMAKE_DEBUG_POSTFIX "d")  
 endif()
@@ -161,8 +175,8 @@ if(BUILD_FRAMEWORK)
     )
 endif()
 
-if(MSVC)
-    set_target_properties(${ANGELSCRIPT_LIBRARY_NAME} PROPERTIES COMPILE_FLAGS "/MP")
+if(MSVC AND MSVC_COMPILE_FLAGS)
+	target_compile_options(${ANGELSCRIPT_LIBRARY_NAME} PRIVATE "${MSVC_COMPILE_FLAGS}")
 endif()
 
 # Don't override the default runtime output path to avoid conflicts when building for multiple target platforms

@@ -1,6 +1,8 @@
 #include "utils.h"
 #include "../../add_on/scriptbuilder/scriptbuilder.h"
 
+using namespace std;
+
 namespace TestModule
 {
 
@@ -12,6 +14,144 @@ bool Test()
 	COutStream out;
 	asIScriptContext *ctx;
 
+	// Test CompileGlobalVar with an array
+	// Reported by gmp3
+	{
+		asIScriptEngine *engine = asCreateScriptEngine();
+		engine->SetMessageCallback(asMETHOD(COutStream, Callback), &out, asCALL_THISCALL);
+
+		RegisterScriptArray(engine, false);
+		
+		asIScriptModule *mod = engine->GetModule("test", asGM_ALWAYS_CREATE);
+		r = mod->CompileGlobalVar(0,"array<int> a = {1,2,3};",0);
+		if( r < 0 )
+			TEST_FAILED;
+		
+		engine->ShutDownAndRelease();
+	}
+
+	// Test GetTypeInfoByName with namespaces
+	{
+		asIScriptEngine *engine = asCreateScriptEngine();
+		engine->SetMessageCallback(asMETHOD(COutStream, Callback), &out, asCALL_THISCALL);
+
+		asIScriptModule *mod = engine->GetModule("test", asGM_ALWAYS_CREATE);
+		mod->AddScriptSection("test",
+		"namespace A { \n"
+		" class Foo {} \n"
+		"} \n"
+		"namespace B { \n"
+		" class Foo {} \n"
+		"} \n");
+		r = mod->Build();
+		if( r < 0 )
+			TEST_FAILED;
+		
+		const char *name = 0, *ns = 0;
+		asITypeInfo *info = mod->GetTypeInfoByName("A::Foo");
+		if( info == 0 || string(info->GetName()) != "Foo" || string(info->GetNamespace()) != "A" )
+			TEST_FAILED;
+			
+		info = mod->GetTypeInfoByName("B::Foo");
+		if( info == 0 || string(info->GetName()) != "Foo" || string(info->GetNamespace()) != "B" )
+			TEST_FAILED;
+						
+		mod->SetDefaultNamespace("B");
+		info = mod->GetTypeInfoByName("Foo");
+		if( info == 0 || string(info->GetName()) != "Foo" || string(info->GetNamespace()) != "B" )
+			TEST_FAILED;
+
+		info = mod->GetTypeInfoByName("::A::Foo");
+		if( info == 0 || string(info->GetName()) != "Foo" || string(info->GetNamespace()) != "A" )
+			TEST_FAILED;
+
+		engine->ShutDownAndRelease();	
+	}
+	
+	// Test GetGlobalVarIndexByName with namespaces
+	{
+		asIScriptEngine *engine = asCreateScriptEngine();
+		engine->SetMessageCallback(asMETHOD(COutStream, Callback), &out, asCALL_THISCALL);
+
+		asIScriptModule *mod = engine->GetModule("test", asGM_ALWAYS_CREATE);
+		mod->AddScriptSection("test",
+		"namespace A { \n"
+		" int var; \n"
+		"} \n"
+		"namespace B { \n"
+		" int var; \n"
+		"} \n");
+		r = mod->Build();
+		if( r < 0 )
+			TEST_FAILED;
+		
+		const char *name = 0, *ns = 0;
+		int v = mod->GetGlobalVarIndexByName("A::var");
+		if( v < 0 ) TEST_FAILED;
+		r = mod->GetGlobalVar(v, &name, &ns, 0, 0);
+		if( r < 0 || string(name) != "var" || string(ns) != "A" )
+			TEST_FAILED;
+			
+		v = mod->GetGlobalVarIndexByName("B::var");
+		if( v < 0 ) TEST_FAILED;
+		r = mod->GetGlobalVar(v, &name, &ns, 0, 0);
+		if( r < 0 || string(name) != "var" || string(ns) != "B" )
+			TEST_FAILED;
+						
+		mod->SetDefaultNamespace("B");
+		v = mod->GetGlobalVarIndexByName("var");
+		if( v < 0 ) TEST_FAILED;
+		r = mod->GetGlobalVar(v, &name, &ns, 0, 0);
+		if( r < 0 || string(name) != "var" || string(ns) != "B" )
+			TEST_FAILED;
+
+		v = mod->GetGlobalVarIndexByName("::A::var");
+		if( v < 0 ) TEST_FAILED;
+		r = mod->GetGlobalVar(v, &name, &ns, 0, 0);
+		if( r < 0 || string(name) != "var" || string(ns) != "A" )
+			TEST_FAILED;
+
+		engine->ShutDownAndRelease();	
+	}
+	
+	// Test GetFunctionByName with namespaces
+	// https://www.gamedev.net/forums/topic/704043-module-getfunctionbyname-namespace/
+	{
+		asIScriptEngine *engine = asCreateScriptEngine();
+		engine->SetMessageCallback(asMETHOD(COutStream, Callback), &out, asCALL_THISCALL);
+
+		asIScriptModule *mod = engine->GetModule("test", asGM_ALWAYS_CREATE);
+		mod->AddScriptSection("test",
+		"namespace A { \n"
+		" void func() {} \n"
+		"} \n"
+		"namespace B { \n"
+		" void func() {} \n"
+		"} \n");
+		r = mod->Build();
+		if( r < 0 )
+			TEST_FAILED;
+		
+		asIScriptFunction *f = mod->GetFunctionByName("A::func");
+		if( f == 0 || string(f->GetNamespace()) != "A" || string(f->GetName()) != "func")
+			TEST_FAILED;
+		
+		f = mod->GetFunctionByName("B::func");
+		if( f == 0 || string(f->GetNamespace()) != "B" || string(f->GetName()) != "func")
+			TEST_FAILED;
+		
+		mod->SetDefaultNamespace("B");
+		f = mod->GetFunctionByName("func");
+		if( f == 0 || string(f->GetNamespace()) != "B" || string(f->GetName()) != "func")
+			TEST_FAILED;
+		
+		f = mod->GetFunctionByName("::A::func");
+		if( f == 0 || string(f->GetNamespace()) != "A" || string(f->GetName()) != "func")
+			TEST_FAILED;
+
+		engine->ShutDownAndRelease();
+	}
+	
 	// Test discarding module right after compiling
 	// http://www.gamedev.net/topic/677465-refcount-mismatch-when-discarding-module/
 	{

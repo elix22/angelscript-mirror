@@ -16,14 +16,15 @@ bool<br>
 break<br>
 case<br>
 cast<br>
+catch<br>
 class<br>
 const<br>
 continue<br>
 default<br>
 do<br>
-double<br>
 </code></td>
 <td width=100 valign=top><code>
+double<br>
 else<br>
 enum<br>
 explicit*<br>
@@ -50,25 +51,27 @@ int32<br>
 int64<br>
 is<br>
 mixin<br>
+namespace<br>
 </code></td>
 <td width=100 valign=top><code>
-namespace<br>
 not<br>
 null<br>
 or<br>
 out<br>
 override*<br>
 private<br>
+property*<br>
 protected<br>
 return<br>
 set*<br>
 shared*<br>
 super*<br>
+switch<br>
 </code></td>
 <td width=100 valign=top><code>
-switch<br>
 this*<br>
 true<br>
+try<br>
 typedef<br>
 uint<br>
 uint8<br>
